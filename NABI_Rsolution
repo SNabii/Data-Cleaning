@@ -1,0 +1,272 @@
+# Heading Function 
+```{r}
+# title: "Data Quality Report"
+# output:
+#   html_document:
+#      code_folding : "hide"
+#      highlight: tango
+#      toc: yes
+#   html_notebook:
+#      toc: yes
+
+```
+
+# Function Null Report in %
+```{r}
+NULLreport_inpercentage <- function(df){
+NULL_Report <- data.frame(matrix(,ncol = 2,nrow = ncol(df)))
+names(NULL_Report) <- c("Col_names","Percentage")
+NULL_Report$Col_names <- names(df)
+NULL_Report$Percentage <- sapply(df, function(x) (sum(x)/nrow(df)))
+NULL_Report <- NULL_Report %>%
+  arrange(desc(Percentage))
+#datatable(NULL_Report)
+return(NULL_Report)  
+}
+NULLreport_inpercentage(df)
+```
+
+# Making/Pasting SQL Query in Bulk
+```{r}
+coli <- names(df1)
+for(i in coli){
+  
+  #print(i)
+  
+  #100*SUM(CASE WHEN  PSTEXTRACTEDZIP IS NULL THEN 1 ELSE 0 END)/COUNT(*) AS  PSTEXTRACTEDZIP ,
+  
+ # print(paste("100*SUM(CASE WHEN ",i," IS NULL THEN 1 ELSE 0 END)/COUNT(*) AS  ",i, ","))
+  print(paste("",i,",",sep=""))
+}
+
+```
+
+# Global setting r output in R notebook
+```{r}
+#knitr::opts_chunk$set(echo = TRUE,include = FALSE)
+```
+
+# Reading csv and Saving to .rds
+```{r}
+rm(list = ls())
+library(data.table);library(profvis)
+profvis(
+df <- fread("D://data//Improve Contactability//data//Tag id data//Master1.csv")
+  
+)
+df <- as.data.frame(df)
+profvis(
+
+)
+
+fl <- list.files("data//Tag id data//",pattern = "Master")
+library(data.table)
+i <-0
+for (i in 1:length(fl)){
+
+tic <- Sys.time()
+df <- fread(paste("D://data//Improve Contactability//data//Tag id data//",fl[i],sep=""))
+cat("Reading",i , "",Sys.time()-tic) 
+
+tic <- Sys.time()
+saveRDS(df , file=paste("D://data//Improve Contactability//data//Tag id data//m",i,".rds",sep=""))
+cat("\nWriting",i , "",Sys.time()-tic)  
+  
+}
+
+```
+
+
+
+# Auto Package Loading
+```{r}
+# Function for Auto-package installer
+toInstallCandidates <- c("plotly", "dplyr", "lubridate", "reshape",
+                         "ggplot2","gcookbook","Amelia","forecast",
+                         "data.table","pracma","zoo","xts","formattable",
+                         "stringr","tidyr","shiny","shinythemes","tidyverse",
+                         "dplyr")
+# check if pkgs are already present
+toInstall <- toInstallCandidates[!toInstallCandidates%in%library()$results[,1]]
+if(length(toInstall)!=0)
+{install.packages(toInstall, repos = "http://cran.r-project.org")}
+# load pkgs
+lapply(toInstallCandidates, library, character.only = TRUE)
+
+```
+
+
+# Column content scoring fuzzy logic
+```{r}
+rm(list=ls())
+Call_comkey <- function(df,col_1,col_2,tweek){
+
+
+
+  df <- data.frame(lapply(df, function(v) {
+    if (is.character(v) | is.factor(factor(v))) return(toupper(v))
+    else return(v)
+  }))
+
+  library(RecordLinkage)
+
+
+
+  #col_1 <- 2
+  #col_2 <- 3
+
+  i <- 1
+  for(i in 1:nrow(df)){
+
+    index_char <- as.character(df[i,col_1])
+
+    #cat("\n",i,"",index_char)
+    it <- 1
+    for(it in 1:nrow(df)){
+
+      df[it,paste("",index_char,"_Score",sep="")]<- levenshteinSim(index_char, as.character(df[it,col_2]))
+
+
+    }
+
+
+
+  }
+
+
+
+
+
+
+  fd <- df[ , grepl( "Score" , names(df) ) ]
+  fd[is.na(fd)] <- 0
+  temp_list<- list()
+  it <- 1
+
+  tweeki <- tweek #  <- 0.7
+  for(it in 1:ncol(fd)){
+
+    if(max(fd[,it]) < tweeki){next}
+
+    if(max(fd[,it]) >= tweeki){
+      #print(max(fd[,it]))
+      temp_list<- c(temp_list, as.character(names(fd)[it])) # list.append(names(fd)[it])
+
+    }
+
+  }
+
+  cat("Common Key Found are:",unlist(str_replace_all(temp_list,"_Score","")),
+      "\n Scehma-1 :",names(df)[col_1],
+      "\n Scehma-2 :",names(df)[col_2])
+
+
+
+  # temp_list <- str_replace_all(temp_list,"_Score","")
+  # df[str_detect(temp_list , as.character(df[,col_1])),col_1]
+  # df[str_detect(temp_list , as.character(df[,col_2])),col_2]
+
+
+
+
+
+}
+df <- read.csv("C://Users//nshaikh2//Desktop//Data_model.csv")
+
+
+Call_comkey(df,3,5,0.8)
+```
+
+
+
+
+# Call Missing summary
+```{r}
+callfunc_summary <- function(mydata){
+  df <- as.data.frame(mydata)
+  library(dplyr)
+  df <- as.data.frame(df)
+  x <- data.frame(matrix(,ncol = 4,nrow = ncol(df)))
+  x$X1 <- names(df)
+  x$X2 <- as.character(sapply(df, function(x)class(x)))
+  x$X3 <- round(sapply(df, function(x) sum(is.na(x)))/nrow(df)*100,4)
+  x$X4<- sapply(df, function(x)length(unique(x)))
+  names(x) <- c("Feature_name","Dtype","Perc_Miss","Len_unique")
+  x <- x %>%
+    arrange(desc(Perc_Miss))
+  return(x)
+}
+callfunc_summary(df)
+```
+
+# Ecryption & Decryption
+```{r}
+rm(list=ls())
+df <- read_excel("C://Users//nshaikh2//Desktop//headers.xlsx")
+
+coli <- c("V1","V2","V3","V4","V5")
+Call_EncrypDecryp <- function(df,coli){
+  
+  
+  library(readxl)
+  names(df) <-trimws(names(df),which = "both")
+  key <- hash(charToRaw("This is the secrest case"))
+  nonce <- random(24)
+  
+  # it <- coli[1]
+  library(sodium)
+  
+  for( it in (coli)){
+    # print(df[,which(colnames(df)==it)])
+    print(names(df)[which(colnames(df)==it)])
+    col_insert <- which(colnames(df)==it)
+    
+    i<- 1
+    for(i in 1:nrow(df)){
+      msg <- serialize(df[i,col_insert],NULL)
+      cipher <- data_encrypt(msg,key,nonce)
+      
+      df[i,paste("",names(df)[which(colnames(df)==it)],"_Encrip",sep="")] <- paste(as.character(cipher),collapse = "")
+      #paste("",cipher)
+      orig <- data_decrypt(cipher,key,nonce)
+      cx <- unserialize(orig)
+      df[i,paste("",names(df)[which(colnames(df)==it)],"_Decrip",sep="")] <- paste(as.character(cx),collapse = "")
+    }
+  }
+  
+  return(df)
+}
+tic <- Sys.time()
+encripted_df <- Call_EncrypDecryp(df,coli)
+cat("\nWriting",i , "",Sys.time()-tic)  
+
+```
+
+# unzip file
+```{r}
+zipfile <- "C://Users//nshaikh2//Desktop//Data_model.csv"
+unzip(zipfile, files = NULL, list = FALSE, overwrite = TRUE,
+      junkpaths = FALSE, exdir = ".", unzip = "internal",
+      setTimes = FALSE)
+
+```
+
+
+
+# Spark Reading csv file
+```{r}
+library(sparklyr)
+spark_install(version = "2.1.0")
+
+sc = spark_connect(master = "local")
+
+data_feed_local = spark_read_csv(sc=sc, name="data_feed", 
+                                 path="D:\\data\\Nb\\Av Analytics\\wns\\input_data\\train.csv", header=FALSE, delimiter=",")
+
+```
+
+#row wise Missing value calculation
+```{r}
+df$row_miss<- rowSums(is.na(df))/ncol(df)*100
+```
+
