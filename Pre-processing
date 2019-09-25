@@ -1,0 +1,228 @@
+
+```{r}
+rm(list=ls())
+getwd()
+library(data.table);library(dplyr)
+folder_cont <- list.files("data//Tag id data//",pattern = "m")
+```
+
+# Reading Data.
+
+
+```{r}
+tic <- Sys.time()
+df <- readRDS(paste("data//Tag id data//",folder_cont[2],sep=""))
+#df <- fread(paste("data//Tag id data//",folder_cont[1],sep=""))
+df <- as.data.frame(df)
+names(df) <- 
+  c("PMT_ADDRESS_ZIP",
+"MOBILE_SECONDARY",
+"PMTEXTRACTEDZIP",
+"COMM_ADDRESS_ZIP",
+"CMNEXTRACTEDZIP",
+"AADHAAR",
+"CLEANSED_AADHAAR",
+"EMAIL_SECONDARY",
+"EMAIL_PRIMARY",
+"CLEANSED_VOTERID",
+"VOTER_ID",
+"PAN",
+
+#-- Previous left out 
+
+ "PSNT_ADDRESS_STATE",
+ "BHV_INFLUENCE_IS_VIP",
+ "MOBILE_SECONDARY_DND",
+ "PMT_ADDRESS_STATE",
+ "EXTRACTEDNAME",
+ "INSERT_DATE_TIME",
+ "FULL_NAME",
+ "NATIONALITY",
+ "MOBILE_PRIMARY_DND",
+ "CMNADDRESS_COMP",
+ "PRESENTADDRESS_CITY",
+ "BIRTH_DATE",
+ "PMTADDRESS_CITY",
+ "PRESENTADDRESS",
+ "SOURCE_CUSTOMER_ID",
+ "MOBILE_PRIMARY",
+ "CUSTOMER_CREATION_DATE",
+ "DC_ACTIVE_FLAG",
+ "PSNT_ADDRESS_ZIP",
+ "TITLE",
+ "PSNT_ADDRESS_COUNTRY",
+ "EXTRACTEDNAME_FNAME_METAPHONE",
+ "FIRST_NAME",
+ "EXTRACTEDNAME_INITIALS",
+ "PMTADDRESS_COMP",
+ "PMT_ADDRESS_CITY",
+ "DC_SOURCE_PRIORITY",
+ "PRESENTADDRESS_COMP",
+ "PSTINCOMINGADDRESS",
+ "STD_BIRTH_DATE",
+ "CMNINCOMINGCOUNTRY",
+ "GENDER",
+ "PMT_ADDRESS_COUNTRY",
+ "PSTINCOMINGSTATE",
+ "PSTINCOMINGCITY",
+ "LAST_NAME",
+ "EXTRACTEDNAME_FL_LET_MPHONE",
+ "SOURCE_ID",
+ "EMP_TOTAL_EXPERIENCE",
+ "EXTRACTEDNAME_LNAME_METAPHONE",
+ "MODIFY_DATE_TIME",
+ "DC_AS_OF_DATE",
+ "EMP_CURR_WORK_DOMAIN",
+ "COMM_ADDRESS_COUNTRY",
+ "PSNT_ADDRESS_CITY",
+ "PSTINCOMINGCOUNTRY",
+ "LANDLINE_HOME",
+ "DC_UNIFIED_ID",
+ "EMP_CURR_WORK_TYPE",
+ "EMP_ANNUAL_INCOME",
+ "PSNT_ADDRESS_LINE_3",
+ "PSNT_ADDRESS_LINE_2",
+ "PSNT_ADDRESS_LINE_1",
+ "PSTEXTRACTEDCITY",
+ "PSTINCOMINGPIN",
+ "EXTRACTEDNAME_INITIALSTR",
+ "MIDDLE_NAME",
+ "MARITAL_STATUS",
+ "PMTINCOMINGCOUNTRY"
+)
+df[df=="NULL"]<-NA
+df <- df%>%
+  mutate_all(function(x)trimws(x,which = "both"))%>%
+  data.frame()
+cat("Time Taken: ",Sys.time()-tic)
+```
+
+# Missing Report
+
+```{r}
+Missing_Report <- (data.frame(colSums(is.na(df))/nrow(df)*100))
+names(Missing_Report)[1] <- "perc"
+Missing_Report$column <- rownames(Missing_Report);rownames(Missing_Report) <- NULL
+Missing_Report <- Missing_Report %>%
+                arrange(desc(perc))
+Missing_Report
+```
+
+# PMT_ADDRESS_ZIP
+
+```{r}
+zx <- df %>%
+  mutate(Lent = nchar(PMT_ADDRESS_ZIP))%>%
+ select(PMT_ADDRESS_ZIP,Lent) %>%
+mutate(x_col = 
+        ifelse((nchar(PMT_ADDRESS_ZIP) == 6)|
+                 (grepl("^0", as.character(PMT_ADDRESS_ZIP) )== 1 & (Lent == 7)) ,1,NA),
+       y_col = 
+         ifelse(regexpr("^([0-9])\\1+$", as.character(PMT_ADDRESS_ZIP)) == 1 | 
+                  Lent < 6 | Lent > 7
+                  ,NA,1))%>%
+  mutate(PMT_ADDRESS_ZIP_clean = ifelse( x_col == 1 & y_col == 1,PMT_ADDRESS_ZIP , NA))%>%
+  select(PMT_ADDRESS_ZIP,PMT_ADDRESS_ZIP_clean)
+ 
+zip_analysis <- zx %>%
+  group_by(PMT_ADDRESS_ZIP)%>%
+  summarise(N=n(),
+         Sumx = unique(PMT_ADDRESS_ZIP_clean))%>%
+  mutate(len = nchar(PMT_ADDRESS_ZIP))%>%
+  data.frame()
+
+
+df$PMT_ADDRESS_ZIP_clean <- zx$PMT_ADDRESS_ZIP_clean
+
+rm(list=setdiff(ls(),c("df","Missing_Report")))
+```
+
+# Mobile Secondary
+
+```{r}
+c <- df %>%
+  mutate(Lent = nchar(MOBILE_SECONDARY)) %>%
+  select(MOBILE_SECONDARY,Lent)%>%
+  mutate(V1 = ifelse((Lent > 10 | Lent < 10)| (Lent == 10 & regexpr("^([0-9])\\1+$", as.character(MOBILE_SECONDARY)) == 1) ,NA,1))%>%
+  mutate(V2 = ifelse( (Lent == 10 & grepl("^[6-9]", as.character(MOBILE_SECONDARY) )== 1) &  regexpr("^([0-9])\\1+$", as.character(MOBILE_SECONDARY)) != 1 ,1,NA))%>%
+  mutate(MOBILE_SECONDARY_clean = ifelse((V1 == 1 )&(V2 == 1),MOBILE_SECONDARY,NA))
+
+df$MOBILE_SECONDARY_clean<- c$MOBILE_SECONDARY_clean
+df <- as.data.frame(df)
+rm(list=setdiff(ls(),c("df","Missing_Report")))
+
+```
+
+# ALL Date Formatization
+
+```{r}
+df$INSERT_DATE_TIME_clean <- as.POSIXct(strptime(as.character(df$INSERT_DATE_TIME), "%Y/%m/%d %H:%M:%S"))
+df$BIRTH_DATE_clean <- as.POSIXct(strptime(as.character(df$BIRTH_DATE), "%Y/%m/%d %H:%M:%S"))
+df$CUSTOMER_CREATION_DATE_clean <- sub("[^.]*$", "", as.character(df$CUSTOMER_CREATION_DATE))
+df$CUSTOMER_CREATION_DATE_clean <- as.POSIXct(strptime(as.character(df$CUSTOMER_CREATION_DATE), "%Y-%m-%d %H:%M:%S"))
+df$STD_BIRTH_DATE_clean <- as.POSIXct(strptime(as.character(df$STD_BIRTH_DATE), "%m/%d/%Y %H:%M:%S"))
+
+df$MODIFY_DATE_TIME_clean<- sub("[^.]*$", "", as.character(df$MODIFY_DATE_TIME))
+df$MODIFY_DATE_TIME_clean <- as.POSIXct(strptime(as.character(df$MODIFY_DATE_TIME), "%Y/%m/%d %H:%M:%S"))
+
+df$DC_AS_OF_DATE_clean<- sub("[^.]*$", "", as.character(df$DC_AS_OF_DATE))
+df$DC_AS_OF_DATE_clean <- as.POSIXct(strptime(as.character(df$DC_AS_OF_DATE), "%Y-%m-%d %H:%M:%S"))
+rm(list=setdiff(ls(),c("df","Missing_Report")))
+
+```
+
+
+# AADHAAR CARD 
+
+```{r}
+c <- df %>%
+  mutate(AADHAAR=str_replace_all(string=AADHAAR, pattern=" ", repl=""))%>%
+  mutate(Lent = nchar(AADHAAR))%>%
+select(AADHAAR,Lent)%>%
+  mutate(AADHAAR_clean = ifelse((Lent > 12 | Lent < 12)| (Lent == 12 & regexpr("^([0-9]|[a-b]|[A-Z])\\1+$", as.character(AADHAAR)) == 1) ,NA,AADHAAR))
+df$AADHAAR_clean <- c$AADHAAR_clean
+
+rm(list=setdiff(ls(),c("df","Missing_Report")))
+
+```
+
+# Mobile primary  
+
+```{r}
+c <- df %>%
+  mutate(Lent = nchar(MOBILE_PRIMARY)) %>%
+  select(MOBILE_PRIMARY,Lent)%>%
+  mutate(V1 = ifelse((Lent > 10 | Lent < 10)| (Lent == 10 & regexpr("^([0-9])\\1+$", as.character(MOBILE_PRIMARY)) == 1) ,NA,1))%>%
+  mutate(V2 = ifelse( (Lent == 10 & grepl("^[6-9]", as.character(MOBILE_PRIMARY) )== 1) &  regexpr("^([0-9])\\1+$", as.character(MOBILE_PRIMARY)) != 1 ,1,NA))%>%
+  mutate(MOBILE_PRIMARY_clean = ifelse((V1 == 1 )&(V2 == 1),MOBILE_PRIMARY,NA))
+
+df$MOBILE_PRIMARY_clean<- c$MOBILE_PRIMARY_clean
+df <- as.data.frame(df)
+rm(list=setdiff(ls(),c("df","Missing_Report")))
+```
+
+
+
+# PAN -- working on PAN No 
+
+```{r}
+c <- df %>%
+  mutate(Lent = nchar(PAN)) %>%
+  select(PAN,Lent)%>%
+  mutate(V1 = ifelse((Lent > 10 | Lent < 10)| (Lent == 10 & regexpr("^([0-9])\\1+$", as.character(PAN)) == 1) ,NA,1))%>%
+  mutate(V2 = ifelse( (Lent == 10 & grepl("^[6-9]", as.character(PAN) )== 1) &  regexpr("^([0-9])\\1+$", as.character(PAN)) != 1 ,1,NA))%>%
+  mutate(MOBILE_PRIMARY_clean = ifelse((V1 == 1 )&(V2 == 1),PAN,NA))
+
+df$MOBILE_PRIMARY_clean<- c$MOBILE_PRIMARY_clean
+df <- as.data.frame(df)
+rm(list=setdiff(ls(),c("df","Missing_Report")))
+```
+
+
+
+# ----
+Clean Data Till date
+```{r}
+clean_df <- df[,grepl("clean", names(df))]
+write.csv(clean_df , file = "m1_clean.csv",row.names = FALSE)
+```
